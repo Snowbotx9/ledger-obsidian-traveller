@@ -21,7 +21,7 @@ export const makeBucketNames = (
   const currentDate = startDate.clone();
 
   do {
-    names.push(currentDate.format('YYYY-MM-DD'));
+    names.push(currentDate.format('YYYY-DDD'));
     currentDate.add(1, interval);
   } while (currentDate.isSameOrBefore(endDate));
 
