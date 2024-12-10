@@ -1,72 +1,64 @@
+// Traveller Calendar Utilities
+// Modified to use Traveller 2e calendar with days numbered 1-365
+
 import { getWithDefault } from './generic-utils';
 import { EnhancedTransaction } from './parser';
 import { Moment } from 'moment';
 
-export type Interval = 'day' | 'week' | 'month';
+export type Interval = 'day'; // Only 'day' is valid for Traveller 2e
 
 /**
- * makeBucketNames creates a list of dates at the provided interval between the
- * startDate and the endDate.
+ * makeBucketNames creates a list of Traveller 2e dates between the startDate and the endDate.
  */
 export const makeBucketNames = (
   interval: Interval,
   startDate: Moment,
   endDate: Moment,
 ): string[] => {
-  // TODO: We need to make sure the end of the range is captured. Right now it
-  // seems there is either bug here or where we put data into the buckets which
-  // is preventing all the transactions from being represented in the chart.
-
   const names: string[] = [];
   const currentDate = startDate.clone();
 
-  do {
-    names.push(currentDate.format('YYYY-DDD'));
+  while (currentDate.isSameOrBefore(endDate)) {
+    const year = currentDate.year();
+    const dayOfYear = currentDate.dayOfYear();
+    names.push(`${year}.${dayOfYear.toString().padStart(3, '0')}`);
     currentDate.add(1, interval);
-  } while (currentDate.isSameOrBefore(endDate));
+  }
 
   return names;
 };
 
 /**
- * bucketTransactions sorts the provided transactions into the appropriate
- * bucket name provided. Transactions will be put in the bucket whose name is
- * most closely the same or before the transaction date.
+ * bucketTransactions sorts the provided transactions into Traveller 2e calendar buckets.
+ * Transactions are placed in the bucket with the closest earlier or matching Traveller date.
  *
- * Assumes that bucketNames are in chronological order from earliest to latest.
+ * Assumes bucketNames are sorted chronologically.
  */
 export const bucketTransactions = (
   bucketNames: string[],
   txs: EnhancedTransaction[],
-): Map<Moment, EnhancedTransaction[]> => {
-  let firstBucketMoment: Moment;
-  const restBucketMoments: Moment[] = [];
-  const buckets = new Map<Moment, EnhancedTransaction[]>();
-  bucketNames.forEach((name, i) => {
-    const m = window.moment(name);
-    buckets.set(m, []);
+): Map<string, EnhancedTransaction[]> => {
+  const buckets = new Map<string, EnhancedTransaction[]>();
 
-    if (i === 0) {
-      firstBucketMoment = m;
-    } else {
-      restBucketMoments.push(m);
-    }
+  // Initialize buckets
+  bucketNames.forEach((name) => {
+    buckets.set(name, []);
   });
 
-  const makeEmptyBucket = (): EnhancedTransaction[] => [];
+  // Sort transactions into buckets
   txs.forEach((tx) => {
-    let prevBucket = firstBucketMoment;
-    for (let i = 0; i < restBucketMoments.length; i++) {
-      const m = window.moment(tx.value.date);
-      if (m.isBefore(restBucketMoments[i])) {
+    const txDate = window.moment(tx.value.date);
+    const txTravellerDate = `${txDate.year()}.${txDate.dayOfYear().toString().padStart(3, '0')}`;
+
+    let targetBucket = bucketNames[0]; // Default to the first bucket
+    for (const bucketName of bucketNames) {
+      if (bucketName > txTravellerDate) {
         break;
       }
-      prevBucket = restBucketMoments[i];
+      targetBucket = bucketName;
     }
 
-    // getWithDefault is only necessary for the type checker here. We just put
-    // this bucket in the map, so it will not be missing.
-    getWithDefault(buckets, prevBucket, makeEmptyBucket).push(tx);
+    getWithDefault(buckets, targetBucket, []).push(tx);
   });
 
   return buckets;
