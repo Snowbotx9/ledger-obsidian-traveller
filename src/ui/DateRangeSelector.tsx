@@ -1,3 +1,6 @@
+// Traveller Calendar Utilities - React Integration
+// Modified to use Traveller 2e calendar with days numbered 1-365
+
 import { Interval } from '../date-utils';
 import {
   Button,
@@ -39,43 +42,15 @@ export const DateRangeSelector: React.FC<{
       >
         Daily
       </Button>
-      <Button
-        selected={props.interval === 'week'}
-        action={() => {
-          props.setInterval('week');
-          validateAndUpdateEndDate(
-            'week',
-            props.startDate,
-            props.endDate,
-            props.setEndDate,
-          );
-        }}
-      >
-        Weekly
-      </Button>
-      <Button
-        selected={props.interval === 'month'}
-        action={() => {
-          props.setInterval('month');
-          validateAndUpdateEndDate(
-            'month',
-            props.startDate,
-            props.endDate,
-            props.setEndDate,
-          );
-        }}
-      >
-        Monthly
-      </Button>
     </FlexFloatRight>
 
     <FlexShrink className="ledger-daterange-selectors">
       <DatePicker
-        type="date"
+        type="number"
         placeholder="Start"
-        value={props.startDate.format('YYYY-MM-DD')}
+        value={props.startDate.dayOfYear()}
         onChange={(e) => {
-          const newDate = window.moment(e.target.value);
+          const newDate = window.moment().dayOfYear(Number(e.target.value)).year(props.startDate.year());
           props.setStartDate(newDate);
           if (newDate.isAfter(props.endDate)) {
             props.setEndDate(newDate);
@@ -91,12 +66,12 @@ export const DateRangeSelector: React.FC<{
       />
       <MarginSpan>➜</MarginSpan>
       <DatePicker
-        type="date"
+        type="number"
         placeholder="End"
-        value={props.endDate.format('YYYY-MM-DD')}
-        max={window.moment().format('YYYY-MM-DD')}
+        value={props.endDate.dayOfYear()}
+        max={365}
         onChange={(e) => {
-          const newDate = window.moment(e.target.value);
+          const newDate = window.moment().dayOfYear(Number(e.target.value)).year(props.endDate.year());
           props.setEndDate(newDate.clone());
           if (newDate.isBefore(props.startDate)) {
             props.setStartDate(newDate);
@@ -120,9 +95,10 @@ const validateAndUpdateStartDate = (
   endDate: Moment,
   setStartDate: React.Dispatch<React.SetStateAction<Moment>>,
 ): void => {
-  if (endDate.diff(startDate, interval) > 15) {
+  const maxDays = interval === 'day' ? 15 : 15; // Single interval in Traveller is always 'day'
+  if (endDate.dayOfYear() - startDate.dayOfYear() > maxDays) {
     new Notice('Exceeded maximum time window. Adjusting start date.');
-    setStartDate(endDate.subtract(15, interval));
+    setStartDate(endDate.clone().subtract(maxDays, 'days'));
   }
 };
 
@@ -132,8 +108,9 @@ const validateAndUpdateEndDate = (
   endDate: Moment,
   setEndDate: React.Dispatch<React.SetStateAction<Moment>>,
 ): void => {
-  if (endDate.diff(startDate, interval) > 15) {
+  const maxDays = interval === 'day' ? 15 : 15; // Single interval in Traveller is always 'day'
+  if (endDate.dayOfYear() - startDate.dayOfYear() > maxDays) {
     new Notice('Exceeded maximum time window. Adjusting end date.');
-    setEndDate(startDate.clone().add(15, interval));
+    setEndDate(startDate.clone().add(maxDays, 'days'));
   }
 };
