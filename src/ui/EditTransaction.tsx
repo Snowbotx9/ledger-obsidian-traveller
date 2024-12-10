@@ -1,3 +1,6 @@
+// Traveller Calendar Utilities - React Integration
+// Modified to use Traveller 2e calendar with days numbered 1-365
+
 import { LedgerModifier } from '../file-interface';
 import { Operation } from '../modals';
 import {
@@ -285,7 +288,7 @@ const FormStyles = styled.div`
 `;
 
 /**
- * Line is analagous to EnhancedExpenseLine, however the types are slightly
+ * Line is analogous to EnhancedExpenseLine, however the types are slightly
  * different to facilitate with use in the form.
  */
 interface Line {
@@ -337,8 +340,8 @@ export const EditTransaction: React.FC<{
     payee: isNew ? '' : props.initialState.value.payee,
     txType: isNew ? 'expense' : 'unknown',
     date: isNew
-      ? window.moment().format('YYYY-MM-DD')
-      : window.moment(props.initialState.value.date).format('YYYY-MM-DD'),
+      ? `${window.moment().year()}.${window.moment().dayOfYear().toString().padStart(3, '0')}`
+      : `${window.moment(props.initialState.value.date).year()}.${window.moment(props.initialState.value.date).dayOfYear().toString().padStart(3, '0')}`,
     total: isNew ? '' : getTotalAsNum(props.initialState).toString(),
     lines: isNew
       ? [
@@ -454,8 +457,7 @@ export const EditTransaction: React.FC<{
             type: 'tx',
             value: {
               payee: localPayee,
-              // TODO: This is not a ISO8601. Once reconciliation is added, remove this and reformat file.
-              date: values.date.replace(/-/g, '/'),
+              date: `${window.moment(values.date).year()}.${window.moment(values.date).dayOfYear().toString().padStart(3, '0')}`,
               expenselines: values.lines.map((line) =>
                 lineToEnhancedExpenseLine(line),
               ),
@@ -506,7 +508,11 @@ export const EditTransaction: React.FC<{
                   </Margin>
                   <Margin className="flexShrink">on</Margin>
                   <Margin className="flexGrow">
-                    <Field type="date" name="date" />
+                    <Field
+                      type="number"
+                      name="date"
+                      placeholder="Day of Year"
+                    />
                     <ErrorMessage name="date" component="div" />
                   </Margin>
                 </div>
