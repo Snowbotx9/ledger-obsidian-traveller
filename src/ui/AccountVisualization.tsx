@@ -1,3 +1,6 @@
+// Traveller Calendar Utilities - React Integration
+// Modified to use Traveller 2e calendar with days numbered 1-365
+
 import {
   makeBalanceData,
   makeDailyAccountBalanceChangeMap,
@@ -141,10 +144,7 @@ const DeltaVisualization: React.FC<{
     series: props.accounts.map((account) =>
       makeDeltaData(
         props.dailyAccountBalanceMap,
-        props.startDate
-          .clone()
-          .subtract(1, props.interval)
-          .format('YYYY-MM-DD'),
+        `${props.startDate.year()}.${props.startDate.dayOfYear().toString().padStart(3, '0')}`,
         props.dateBuckets,
         account,
         props.allAccounts,
@@ -159,3 +159,4 @@ const DeltaVisualization: React.FC<{
 
   return <ChartistGraph data={data} options={options} type="Bar" />;
 };
+

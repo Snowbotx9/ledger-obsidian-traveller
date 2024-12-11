@@ -1,7 +1,12 @@
+// Traveller Calendar Utilities
+// Modified to use Traveller 2e calendar with days numbered 1-365
+
 import { getWithDefault } from './generic-utils';
 import { EnhancedTransaction } from './parser';
 import { ISettings } from './settings';
 import { Moment } from 'moment';
+
+export type Interval = 'day'; // Only 'day' is valid for Traveller 2e
 
 export type ChartData = {
   x: string | number | Date;
@@ -19,6 +24,63 @@ const calcNetWorth = (
       ? accum + bal
       : accum;
   }, 0);
+
+/**
+ * makeBucketNames creates a list of Traveller 2e dates between the startDate and the endDate.
+ */
+export const makeBucketNames = (
+  interval: Interval,
+  startDate: Moment,
+  endDate: Moment,
+): string[] => {
+  const names: string[] = [];
+  const currentDate = startDate.clone();
+
+  while (currentDate.isSameOrBefore(endDate)) {
+    const year = currentDate.year();
+    const dayOfYear = currentDate.dayOfYear();
+    names.push(`${year}.${dayOfYear.toString().padStart(3, '0')}`);
+    currentDate.add(1, interval);
+  }
+
+  return names;
+};
+
+/**
+ * bucketTransactions sorts the provided transactions into Traveller 2e calendar buckets.
+ * Transactions are placed in the bucket with the closest earlier or matching Traveller date.
+ *
+ * Assumes bucketNames are sorted chronologically.
+ */
+export const bucketTransactions = (
+  bucketNames: string[],
+  txs: EnhancedTransaction[],
+): Map<string, EnhancedTransaction[]> => {
+  const buckets = new Map<string, EnhancedTransaction[]>();
+
+  // Initialize buckets
+  bucketNames.forEach((name) => {
+    buckets.set(name, []);
+  });
+
+  // Sort transactions into buckets
+  txs.forEach((tx) => {
+    const txDate = window.moment(tx.value.date);
+    const txTravellerDate = `${txDate.year()}.${txDate.dayOfYear().toString().padStart(3, '0')}`;
+
+    let targetBucket = bucketNames[0]; // Default to the first bucket
+    for (const bucketName of bucketNames) {
+      if (bucketName > txTravellerDate) {
+        break;
+      }
+      targetBucket = bucketName;
+    }
+
+    getWithDefault(buckets, targetBucket, []).push(tx);
+  });
+
+  return buckets;
+};
 
 export const makeNetWorthData = (
   dailyAccountBalanceMap: Map<string, Map<string, number>>,
@@ -157,7 +219,7 @@ export const removeDuplicateAccounts = (input: string[]): string[] => {
 };
 
 /**
- * Of the format <'YYYY-MM-DD': <'l:Credit:Chase': -450>>
+ * Of the format <'YYYY-DDD': <'l:Credit:Chase': -450>>
  */
 export type DailyAccountBalanceChangeMap = Map<string, Map<string, number>>;
 
@@ -172,14 +234,14 @@ export type DailyAccountBalanceChangeMap = Map<string, Map<string, number>>;
 export const makeDailyAccountBalanceChangeMap = (
   transactions: EnhancedTransaction[],
 ): DailyAccountBalanceChangeMap => {
-  // This map contains a mapping from every day (YYYY-MM-DD) to account names to
+  // This map contains a mapping from every day (YYYY-DDD) to account names to
   // a list of all balance changes.
   const txDateAccountMap = new Map<string, Map<string, number[]>>();
   const makeDefaultAccountMap = (): Map<string, number[]> =>
     new Map<string, number[]>();
   const makeDefaultBalanceList = (): number[] => [];
   transactions.forEach((tx) => {
-    const normalizedDate = window.moment(tx.value.date).format('YYYY-MM-DD');
+    const normalizedDate = `${window.moment(tx.value.date).year()}.${window.moment(tx.value.date).dayOfYear().toString().padStart(3, '0')}`;
     const accounts = getWithDefault(
       txDateAccountMap,
       normalizedDate,
@@ -199,7 +261,7 @@ export const makeDailyAccountBalanceChangeMap = (
     });
   });
 
-  // This map rolls up the balance changes for each day (YYYY-MM-DD) and account
+  // This map rolls up the balance changes for each day (YYYY-DDD) and account
   // pair into a single balance change per entry.
   const dateAccountTotalMap = new Map<string, Map<string, number>>();
   txDateAccountMap.forEach((accounts, txDate) => {
@@ -237,7 +299,7 @@ export const makeDailyBalanceMap = (
   });
 
   while (currentDate.isSameOrBefore(lastDate)) {
-    const currentDateStr = currentDate.format('YYYY-MM-DD');
+    const currentDateStr = `${currentDate.year()}.${currentDate.dayOfYear().toString().padStart(3, '0')}`;
 
     const innerInputMap = input.get(currentDateStr);
     if (innerInputMap) {
